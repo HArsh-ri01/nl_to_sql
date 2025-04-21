@@ -30,3 +30,5 @@ package-lock.json
 # Ignore IDE-specific files
 .vscode/
 .idea/
+
+*__pycache__
