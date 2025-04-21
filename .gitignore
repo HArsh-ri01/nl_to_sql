@@ -1,0 +1,32 @@
+# Ignore Python-related files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+*.venv
+*.egg
+*.egg-info
+*.db
+
+# Ignore SQLite database and cache files
+*.pkl
+*.faiss
+
+
+
+# Ignore system files
+# Ignore Node.js-related files
+frontend/node_modules/
+package-lock.json
+
+
+
+# Ignore environment-specific files
+.env
+
+
+# Ignore generated files
+# Ignore IDE-specific files
+.vscode/
+.idea/
