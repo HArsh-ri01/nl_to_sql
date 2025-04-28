@@ -1,0 +1,1 @@
+The SQL query failed because the 'numpy' Python library, required by the query's logic, was not installed or accessible.
