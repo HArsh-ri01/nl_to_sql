@@ -1,1 +1,0 @@
-SELECT p.player_name, COUNT(w.player_out) AS wickets FROM wickets w JOIN players p ON w.match_id = p.match_id AND w.player_out = p.player_name JOIN teams t ON p.match_id = t.match_id AND p.team_name = t.team_name WHERE t.team_name = 'Chennai Super Kings' GROUP BY p.player_name ORDER BY wickets DESC LIMIT 1;

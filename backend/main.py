@@ -270,81 +270,6 @@ def get_global_remaining_requests() -> int:
     return remaining
 
 
-# # ─── 1. LOAD OR INIT CACHE ────────────────────────────────────────────────────
-# if os.path.exists(INDEX_PATH) and os.path.exists(CACHE_PATH):
-#     index = faiss.read_index(INDEX_PATH)
-#     with open(CACHE_PATH, "rb") as f:
-#         sql_cache = pickle.load(f)
-# else:
-#     index = None
-#     sql_cache = {}
-
-
-# def extract_floats(obj):
-#     """Extract float list from a ContentEmbedding-like object."""
-#     # Direct list of floats?
-#     if isinstance(obj, (float, int)):
-#         return None  # handled upstream
-#     # Try attribute 'embedding'
-#     if hasattr(obj, "embedding"):
-#         return getattr(obj, "embedding")
-#     # Try attribute 'values'
-#     if hasattr(obj, "values"):
-#         return getattr(obj, "values")
-#     # Try pydantic dict
-#     if hasattr(obj, "dict"):
-#         d = obj.dict()
-#         return d.get("embedding") or d.get("values")
-#     # Fallback to __dict__
-#     d = getattr(obj, "__dict__", {})
-#     return d.get("embedding") or d.get("values")
-
-
-# ─── 2. EMBEDDING HELPERS ─────────────────────────────────────────────────────
-# def get_embedding(text: str) -> np.ndarray:
-#     """Fetch and normalize a Gemini embedding for the given text."""
-#     resp = client.models.embed_content(
-#         model=EMB_MODEL, contents=text, config=EMB_CONFIG
-#     )
-#     # resp.embeddings is a flat list of floats
-#     raw = resp.embeddings
-#     if raw and isinstance(raw[0], (float, int)):
-#         emb_list = raw
-#     else:
-#         # extract from first ContentEmbedding
-#         emb_list = extract_floats(raw[0]) or []
-#     vec = np.array(emb_list, dtype="float32")
-#     faiss.normalize_L2(vec.reshape(1, -1))
-#     return vec
-
-
-# def get_cached_sql(query: str) -> str | None:
-#     """Return cached SQL if similarity ≥ threshold."""
-#     global index
-#     if index is None or index.ntotal == 0:
-#         return None
-#     emb = get_embedding(query)
-#     D, I = index.search(emb.reshape(1, -1), k=1)
-#     if D[0][0] >= SIM_THRESHOLD:
-#         return sql_cache[I[0][0]][1]
-#     return None
-
-
-# def cache_query(query: str, sql: str):
-#     """Embed, index, and persist a new (query→SQL) pair."""
-#     global index
-#     emb = get_embedding(query)
-#     dim = emb.shape[0]
-#     if index is None:
-#         index = faiss.IndexFlatIP(dim)
-#     elif index.d != dim:
-#         raise ValueError(f"Dim mismatch: index.d={index.d}, emb_dim={dim}")
-#     vid = index.ntotal
-#     index.add(emb.reshape(1, -1))
-#     sql_cache[vid] = (query, sql)
-#     faiss.write_index(index, INDEX_PATH)
-#     with open(CACHE_PATH, "wb") as f:
-#         pickle.dump(sql_cache, f)
 
 
 # ─── 3. LLM & SQL PIPELINE ────────────────────────────────────────────────────
@@ -463,8 +388,9 @@ async def process_query(request: Request, user_query: str = Form(...)):
     response = json.loads(get_sql_for_query(user_query, system_prompt))
     sql_query = response["sql_query"]
 
-    with open("temp_sql_query", "w") as f:
-        f.write(sql_query)
+    ## TODO : Store sql_query, result and user query in database or json file.
+    # with open("temp_sql_query", "w") as f:
+    #     f.write(sql_query)
 
     # Check if the SQL query is actually an error message
     if sql_query.startswith("ERROR:"):
@@ -482,8 +408,7 @@ async def process_query(request: Request, user_query: str = Form(...)):
     try:
         df = fetch_data(sql_query)
         json_result = df.to_dict(orient="records")
-        with open("temp_json_result.json", "w") as f:
-            json.dump(json_result, f, indent=4)
+
 
         print("Result:", json_result)
         response = {
