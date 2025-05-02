@@ -270,8 +270,6 @@ def get_global_remaining_requests() -> int:
     return remaining
 
 
-
-
 # ─── 3. LLM & SQL PIPELINE ────────────────────────────────────────────────────
 def generate_sql_via_llm(user_query: str, system_prompt: str) -> str:
     response = client.chat.completions.create(
@@ -408,7 +406,6 @@ async def process_query(request: Request, user_query: str = Form(...)):
     try:
         df = fetch_data(sql_query)
         json_result = df.to_dict(orient="records")
-
 
         print("Result:", json_result)
         response = {
