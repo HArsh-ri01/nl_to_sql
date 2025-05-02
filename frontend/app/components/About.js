@@ -65,12 +65,14 @@ export default function About() {
           </div>
 
           <div>
-            <p className="text-slate-600 text-md leading-relaxed">
-              <strong>IIT Madras</strong> supported us with cloud credits through a student innovation scholarship — 
-              that’s how we’re keeping the GPT engine running (for now!).<br /><br />
-              Feedback is always welcome — bugs, bloopers, or brilliant ideas — just hit us up.<br />
-              <span className="italic">🚧 Expect flaws. We're students, not a startup (yet 😉).</span>
-            </p>
+          <p className="text-slate-600 text-md leading-relaxed">
+            <strong>IIT Madras</strong> supported us with cloud credits through a student innovation scholarship —
+            that’s how we’re keeping the GPT engine running (for now!).
+            <br /><br />
+            Feedback is always welcome — bugs, bloopers, or brilliant ideas — just hit us up.
+            <br />
+            <span className="italic">🚧 Expect flaws. We&apos;re students, not a startup (yet 😉).</span>
+          </p>
           </div>
         </div>
       </div>
