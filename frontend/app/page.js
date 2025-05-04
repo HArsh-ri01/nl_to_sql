@@ -101,9 +101,12 @@ export default function Home() {
 
     {(footerExpanded || !isMobile) && (
       <p>
-        We received generous support from IIT Madras for cloud credits, and we're experimenting with this project. It might not always be accurate, and we ask for your understanding.
-        <br></br>Please don’t sue our professors or IIT Madras for any wrong data 😛.
-      </p>
+      We received generous support from IIT Madras for cloud credits, and we&apos;re experimenting with this project.
+      It might not always be accurate, and we ask for your understanding.
+      <br />
+      Please don&apos;t sue our professors or IIT Madras for any wrong data 😛.
+    </p>
+    
     )}
     {isMobile && (
       <button
