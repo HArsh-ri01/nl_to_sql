@@ -79,6 +79,7 @@ CREATE TABLE wickets (
     over INTEGER,
     ball INTEGER,
     player_out TEXT,
+    bowler TEXT,
     kind TEXT
 );
 
@@ -183,7 +184,7 @@ for file in Path(EXTRACT_DIR).glob("*.json"):
                     for wicket in delivery["wickets"]:
                         cursor.execute(
                             """
-                            INSERT INTO wickets VALUES (?, ?, ?, ?, ?, ?)
+                            INSERT INTO wickets VALUES (?, ?, ?, ?, ?, ?, ?)
                         """,
                             (
                                 match_id,
@@ -191,6 +192,7 @@ for file in Path(EXTRACT_DIR).glob("*.json"):
                                 over_num,
                                 ball_index + 1,
                                 wicket["player_out"],
+                                bowler,
                                 wicket["kind"],
                             ),
                         )
