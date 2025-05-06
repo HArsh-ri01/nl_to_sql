@@ -104,6 +104,20 @@ def init_ip_tracking():
     """
     )
 
+    # Create query history table
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS query_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip_address TEXT,
+            user_query TEXT,
+            sql_query TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            success BOOLEAN
+        )
+    """
+    )
+
     # Initialize global counter if it doesn't exist
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM global_counter WHERE counter_id = 'daily_total'")
@@ -270,6 +284,26 @@ def get_global_remaining_requests() -> int:
     return remaining
 
 
+# Add new function to record query history
+def record_query_history(
+    ip_address: str, user_query: str, sql_query: str, success: bool
+):
+    """Record a query in the history table"""
+    conn = sqlite3.connect(IP_TRACKING_DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO query_history (ip_address, user_query, sql_query, success)
+        VALUES (?, ?, ?, ?)
+        """,
+        (ip_address, user_query, sql_query, success),
+    )
+
+    conn.commit()
+    conn.close()
+
+
 # ─── 3. LLM & SQL PIPELINE ────────────────────────────────────────────────────
 def generate_sql_via_llm(user_query: str, system_prompt: str) -> str:
     response = client.chat.completions.create(
@@ -392,6 +426,9 @@ async def process_query(request: Request, user_query: str = Form(...)):
 
     # Check if the SQL query is actually an error message
     if sql_query.startswith("ERROR:"):
+        # Record the failed query in history
+        record_query_history(client_ip, user_query, sql_query, False)
+
         # Return the error message without trying to execute it
         return {
             "sql_query": sql_query,
@@ -407,6 +444,9 @@ async def process_query(request: Request, user_query: str = Form(...)):
         df = fetch_data(sql_query)
         json_result = df.to_dict(orient="records")
 
+        # Record the successful query in history
+        record_query_history(client_ip, user_query, sql_query, True)
+
         print("Result:", json_result)
         response = {
             "sql_query": sql_query,
@@ -418,6 +458,9 @@ async def process_query(request: Request, user_query: str = Form(...)):
         }
         return response
     except Exception as e:
+        # Record the failed query in history
+        record_query_history(client_ip, user_query, sql_query, False)
+
         # Handle execution errors
         # Log the actual error to terminal for debugging
         print(f"ERROR: {str(e)}")
