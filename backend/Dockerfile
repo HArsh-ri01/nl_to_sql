@@ -5,8 +5,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-COPY . /app/
+COPY . .
 
 
 # Default command
-CMD ["uv", "run" ,"main.py"]
+CMD ["sh", "-c", "uv run json_to_database.py && uv run main.py"]
