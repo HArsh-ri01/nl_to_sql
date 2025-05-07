@@ -15,6 +15,7 @@ __pycache__/
 
 # ignore data json files
 ipl_json/
+backend/logs/
 
 # Ignore system files
 # Ignore Node.js-related files

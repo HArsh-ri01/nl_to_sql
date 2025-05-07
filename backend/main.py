@@ -77,12 +77,23 @@ except Exception as e:
 logger.info("Application starting up")
 LogManager.log_app_activity(LogLevel.INFO, "Application started")
 
+# Define base request model
+class BaseQueryRequest(BaseModel):
+    """Base model for all query requests"""
 
-# Define request model for alternative JSON input
-class QueryRequest(BaseModel):
+    def get_query(self) -> str:
+        """Method to retrieve the query string from the request.
+        All subclasses must implement this method."""
+        raise NotImplementedError("Subclasses must implement get_query()")
+
+# Define request model for standard JSON input
+class QueryRequest(BaseQueryRequest):
+    """Standard query request with a user_query field"""
     user_query: str
 
-
+    def get_query(self) -> str:
+        return self.user_query
+    
 # Define the POST endpoint with support for both form and JSON
 @app.post("/process_query/")
 async def process_query(
@@ -97,7 +108,7 @@ async def process_query(
 
     # Use the query from the appropriate source
     if user_query is None:
-        user_query = query_request.user_query
+        user_query = query_request.get_query()
 
     try:
         # Step 1: Log the incoming request
