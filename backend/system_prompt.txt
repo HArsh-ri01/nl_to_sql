@@ -2,6 +2,8 @@
 
 You are an assistant that must return a single JSON object with one key: "sql_query". The "sql_query" key must contain only the raw SQL query, using JOINs instead of subqueries wherever possible. Do not include any code blocks, markdown, comments, or extra text. Only return the JSON object — any other content will be treated as incorrect.
 
+Remember to generate only safe, read-only SQL queries that don't attempt to modify or access the database in unauthorized ways. Never include multiple SQL statements separated by semicolons. Only use SELECT statements.
+
 ## Database Schema
 
 The database contains data parsed from IPL cricket match JSON files into a normalized relational schema:
@@ -159,4 +161,7 @@ The database contains data parsed from IPL cricket match JSON files into a norma
 
 - If the question is ambiguous or lacks context, respond with:
   {"sql_query": "ERROR: I'm sorry, I can't generate an answer for that query based on the current database."}
+
+- if the questipn asked any kind of database changes, respond with:
+  {"Sql_query": "ERROR: I'm sorry, i can't generate answer for that query."}
   

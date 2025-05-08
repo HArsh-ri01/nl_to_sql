@@ -10,6 +10,7 @@
 #   "google-genai",
 #   "python-dotenv",
 #   "openai",
+#   "sqlparse",
 # ]
 # ///
 
@@ -30,6 +31,7 @@ from utils.logger import logger
 from models.db_models import DatabaseManager, LogManager, LogLevel
 from services.ip_tracker import IPTracker
 from services.sql_generator import SQLGenerator
+from services.sql_validator import SQLValidator
 from routes import log_routes, debug_routes
 from middleware.error_handler import ErrorLoggingMiddleware
 
@@ -77,6 +79,7 @@ except Exception as e:
 logger.info("Application starting up")
 LogManager.log_app_activity(LogLevel.INFO, "Application started")
 
+
 # Define base request model
 class BaseQueryRequest(BaseModel):
     """Base model for all query requests"""
@@ -86,14 +89,17 @@ class BaseQueryRequest(BaseModel):
         All subclasses must implement this method."""
         raise NotImplementedError("Subclasses must implement get_query()")
 
+
 # Define request model for standard JSON input
 class QueryRequest(BaseQueryRequest):
     """Standard query request with a user_query field"""
+
     user_query: str
 
     def get_query(self) -> str:
         return self.user_query
-    
+
+
 # Define the POST endpoint with support for both form and JSON
 @app.post("/process_query/")
 async def process_query(
@@ -224,6 +230,42 @@ async def process_query(
                     "global_remaining": IPTracker.get_global_remaining_requests(),
                 },
             }
+
+        # Step 7.5: Add a second layer of SQL validation for enhanced security
+        try:
+            is_valid, error_message = SQLValidator.validate(
+                sql_query, max_subquery_depth=2
+            )
+            if not is_valid:
+                logger.warning(
+                    f"SQL validation failed in process_query step: {error_message}"
+                )
+                LogManager.log_to_db(
+                    LogLevel.WARNING,
+                    f"SQL validation failed: {error_message}",
+                    source="SQL validation",
+                    ip_address=client_ip,
+                )
+                IPTracker.record_query_history(client_ip, user_query, sql_query, False)
+                return {
+                    "sql_query": sql_query,
+                    "error": f"Generated SQL query appears unsafe: {error_message}",
+                    "remaining_requests": {
+                        "user_remaining": IPTracker.get_ip_remaining_requests(
+                            client_ip
+                        ),
+                        "global_remaining": IPTracker.get_global_remaining_requests(),
+                    },
+                }
+        except Exception as e:
+            logger.error(f"Error during SQL validation step: {str(e)}")
+            # Continue with execution, but log the validation issue
+            LogManager.log_to_db(
+                LogLevel.WARNING,
+                f"SQL validation error: {str(e)}",
+                source="SQL validation",
+                ip_address=client_ip,
+            )
 
         # Step 8: Execute and get results
         try:
