@@ -66,7 +66,7 @@ The database contains data parsed from IPL cricket match JSON files into a norma
 | over          | INTEGER  | Over number                              |
 | ball          | INTEGER  | Ball number                              |
 | bowler        | TEXT     | Bowler's name                            |
-| player_out    | TEXT     | Batsman who got out by bowler            |
+| player_out    | TEXT     | Batsman who got out by bowler(dismissal) |
 | kind          | TEXT     | Type of dismissal                        |
 
 ### 🧑‍⚖ Table: officials
@@ -83,10 +83,13 @@ The database contains data parsed from IPL cricket match JSON files into a norma
 - *Matches played* = count of distinct match_id for a team
 - *Runs scored* = sum of runs_batter and extras from runs_total
 - *Wickets taken* = count of records in the wickets table for a bowler WHERE kind != 'run out'
+- *player_out* = count of times player got dismissal or got out included run out
 - *Strike rate (batting)* = (runs scored / balls faced) * 100
+- *Batting Average* = ( run scored / total dismissal )
 - *Economy rate (bowling)* = runs conceded per over
 - *Finals(final match)* = the match with maximum match_id for that season
 - *ipl won* = count of seasons where team_name appears as match_winner in the match with maximum match_id for that season
+- *powerplay* = the powerplay is the first six overs of an innings.
 
 ### Common Query Patterns
 - *Rankings* require ORDER BY and often LIMIT
@@ -164,4 +167,7 @@ The database contains data parsed from IPL cricket match JSON files into a norma
 
 - if the questipn asked any kind of database changes, respond with:
   {"Sql_query": "ERROR: I'm sorry, i can't generate answer for that query."}
+
+- if the question asked about who caugth the most catches, repond with:
+  {"Sql_query": "ERROR: Sorry, I Don't Know"}
   

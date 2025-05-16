@@ -69,13 +69,11 @@ useEffect(() => {
     const newMessages = [...messages, { sender: "user", text: content }];
     setMessages(newMessages);
     setInput("");
-    setIsThinking(true);
-
-    try {
+    setIsThinking(true);    try {
       const formData = new FormData();
       formData.append("user_query", content);
 
-      const res = await fetch("http://206.189.132.187:8000/process_query/", {
+      const res = await fetch("http://localhost:8000/process_query/", {
         method: "POST",
         body: formData,
       });
@@ -89,7 +87,7 @@ useEffect(() => {
         ]);
       } else {
         const generateTableHTML = (data) => {
-          if (!Array.isArray(data) || data.length === 0) return "<p>No data available</p>";
+          if (!Array.isArray(data) || data.length === 0) return "<p>I don't know the answer of this query</p>";
         
           const headers = Object.keys(data[0]);
           const headerRow = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;

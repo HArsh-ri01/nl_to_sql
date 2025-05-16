@@ -4,7 +4,7 @@ from models.db_models import IP_TRACKING_DB_PATH
 from utils.logger import logger
 
 # Request limits
-MAX_DAILY_REQUESTS_PER_IP = 100
+MAX_DAILY_REQUESTS_PER_IP = 5
 MAX_TOTAL_DAILY_REQUESTS = 5000
 
 

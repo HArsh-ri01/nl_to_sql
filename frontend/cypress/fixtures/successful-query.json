@@ -1,0 +1,16 @@
+{
+  "successfulQueryResponse": {
+    "sql_query": "SELECT player_name, SUM(runs) as total_runs FROM matches JOIN players ON matches.player_id = players.id WHERE season = 2023 GROUP BY player_name ORDER BY total_runs DESC LIMIT 10",
+    "result": [
+      { "player_name": "Virat Kohli", "total_runs": 825 },
+      { "player_name": "Shubman Gill", "total_runs": 795 },
+      { "player_name": "Faf du Plessis", "total_runs": 720 },
+      { "player_name": "Devon Conway", "total_runs": 672 },
+      { "player_name": "Yashasvi Jaiswal", "total_runs": 625 }
+    ],
+    "remaining_requests": {
+      "user_remaining": 95,
+      "global_remaining": 9800
+    }
+  }
+}

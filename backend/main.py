@@ -120,40 +120,7 @@ async def process_query(
         # Step 1: Log the incoming request
         logger.info(f"Received query: {user_query}")
 
-        # Step 2: Check if the query is related to IPL
-        if not any(
-            keyword in user_query.lower()
-            for keyword in [
-                "ipl",
-                "match",
-                "player",
-                "team",
-                "runs",
-                "wickets",
-                "overs",
-                "sixes",
-                "fours",
-                "score",
-                "points",
-                "ranking",
-                "history",
-                "statistics",
-                "records",
-                "innings",
-                "performance",
-                "average",
-                "strike rate",
-                "economy",
-                "highest",
-                "lowest",
-                "best",
-                "worst",
-            ]
-        ):
-            logger.warning(f"Non-IPL related query rejected: {user_query}")
-            return {"error": "Please ask a specific question related to IPL data."}
-
-        # Step 3: Get the real client IP address
+        # Step 2: Get the real client IP address
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
             client_ip = forwarded_for.split(",")[0].strip()
@@ -162,7 +129,7 @@ async def process_query(
 
         logger.info(f"Request from IP: {client_ip}")
 
-        # Step 4: Check global daily limit
+        # Step 3: Check global daily limit
         global_remaining = IPTracker.get_global_remaining_requests()
         if global_remaining <= 0:
             logger.warning("Global daily limit reached")
@@ -173,7 +140,7 @@ async def process_query(
                 "error": f"The service has reached its daily request limit. Please try again tomorrow."
             }
 
-        # Step 5: Check individual IP request limit
+        # Step 4: Check individual IP request limit
         if not IPTracker.check_ip_limit(client_ip):
             ip_remaining = IPTracker.get_ip_remaining_requests(client_ip)
             logger.warning(f"IP {client_ip} exceeded request limit")
@@ -186,7 +153,7 @@ async def process_query(
                 "error": f"You have exceeded your daily limit. You have {ip_remaining} requests remaining for today."
             }
 
-        # Step 6: Generate SQL query
+        # Step 5: Generate SQL query
         try:
             response = json.loads(
                 sql_generator.get_sql_for_query(user_query, system_prompt)
@@ -200,14 +167,14 @@ async def process_query(
                 LogLevel.ERROR, error_msg, source="SQL generation", ip_address=client_ip
             )
             return {
-                "error": "Failed to generate SQL query",
+                "error": "Try again later. The server is having trouble.",
                 "remaining_requests": {
                     "user_remaining": IPTracker.get_ip_remaining_requests(client_ip),
                     "global_remaining": IPTracker.get_global_remaining_requests(),
                 },
             }
 
-        # Step 7: Check if the SQL query is actually an error message
+        # Step 6: Check if the SQL query is actually an error message
         if sql_query.startswith("ERROR:"):
             # Record the failed query in history
             IPTracker.record_query_history(client_ip, user_query, sql_query, False)
@@ -229,13 +196,10 @@ async def process_query(
                     "user_remaining": IPTracker.get_ip_remaining_requests(client_ip),
                     "global_remaining": IPTracker.get_global_remaining_requests(),
                 },
-            }
-
-        # Step 7.5: Add a second layer of SQL validation for enhanced security
+            }  
+        # Step 6.5: Add a second layer of SQL validation for enhanced security
         try:
-            is_valid, error_message = SQLValidator.validate(
-                sql_query, max_subquery_depth=2
-            )
+            is_valid, error_message = SQLValidator.validate(sql_query)
             if not is_valid:
                 logger.warning(
                     f"SQL validation failed in process_query step: {error_message}"
@@ -249,7 +213,7 @@ async def process_query(
                 IPTracker.record_query_history(client_ip, user_query, sql_query, False)
                 return {
                     "sql_query": sql_query,
-                    "error": f"Generated SQL query appears unsafe: {error_message}",
+                    "error": f"I don't answer unsafe query: {error_message}",
                     "remaining_requests": {
                         "user_remaining": IPTracker.get_ip_remaining_requests(
                             client_ip
@@ -266,16 +230,20 @@ async def process_query(
                 source="SQL validation",
                 ip_address=client_ip,
             )
-
-        # Step 8: Execute and get results
+        # Step 7: Execute and get results
         try:
             df = sql_generator.fetch_data(sql_query)
-            json_result = df.to_dict(orient="records")
+
+            # Convert DataFrame to JSON with proper float handling
+            # This ensures numeric values maintain their 2 decimal place formatting
+            json_result = json.loads(df.to_json(orient="records", double_precision=2))
 
             # Record the successful query in history
             IPTracker.record_query_history(client_ip, user_query, sql_query, True)
 
-            logger.info(f"Query executed successfully with {len(json_result)} results")
+            logger.info(
+                f"Query executed successfully with {len(json_result)} results (numeric values rounded to 2 decimal places)"
+            )
             LogManager.log_app_activity(
                 LogLevel.INFO,
                 f"Successful query from {client_ip}: {user_query[:50]}...",

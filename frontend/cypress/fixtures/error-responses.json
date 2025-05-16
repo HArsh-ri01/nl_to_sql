@@ -1,0 +1,22 @@
+{
+  "errorResponse": {
+    "sql_query": "ERROR: Invalid query",
+    "error": "The query could not be processed. Please ask a question related to IPL cricket data.",
+    "remaining_requests": {
+      "user_remaining": 94,
+      "global_remaining": 9799
+    }
+  },
+  "sqlValidationError": {
+    "sql_query": "ERROR: SQL validation failed",
+    "error": "Generated SQL query appears unsafe: Query attempts to access unauthorized tables",
+    "remaining_requests": {
+      "user_remaining": 93,
+      "global_remaining": 9798
+    }
+  },
+  "serverError": {
+    "error": "Internal Server Error",
+    "message": "Something went wrong on our end. Please try again later."
+  }
+}
