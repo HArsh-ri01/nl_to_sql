@@ -142,7 +142,7 @@ export default function ChatView() {
       formData.append("feedback_type", feedbackType);
 
       // Send feedback to backend
-      const res = await fetch("http://localhost:8000/feedback/", {
+      const res = await fetch("/api/feedback/", {
         method: "POST",
         body: formData,
       });
