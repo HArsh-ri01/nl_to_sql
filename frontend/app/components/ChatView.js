@@ -73,7 +73,7 @@ useEffect(() => {
       const formData = new FormData();
       formData.append("user_query", content);
 
-      const res = await fetch("http://localhost:8000/process_query/", {
+      const res = await fetch("/api/process_query/", {
         method: "POST",
         body: formData,
       });
