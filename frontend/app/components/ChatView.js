@@ -15,23 +15,23 @@ export default function ChatView() {
   const [currentSQL, setCurrentSQL] = useState("");
   const [fullTableHtml, setFullTableHtml] = useState("");
   const [showTableModal, setShowTableModal] = useState(false);
+  const [feedbackInProgress, setFeedbackInProgress] = useState(false);
   const LottiePlaceholder = dynamic(() => import("./LottiePlaceholder"), {
     ssr: false,
   });
 
   const [isMobile, setIsMobile] = useState(false);
 
-useEffect(() => {
-  // Use a width threshold (e.g., 640px) to detect mobile devices
-  const handleResize = () => {
-    setIsMobile(window.innerWidth < 640);
-  };
+  useEffect(() => {
+    // Use a width threshold (e.g., 640px) to detect mobile devices
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
 
-  handleResize(); // run on mount
-  window.addEventListener("resize", handleResize);
-  return () => window.removeEventListener("resize", handleResize);
-}, []);
-
+    handleResize(); // run on mount
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const suggestedQuestions = [
     "Who scored the most runs in Indian Premiere League",
@@ -69,7 +69,8 @@ useEffect(() => {
     const newMessages = [...messages, { sender: "user", text: content }];
     setMessages(newMessages);
     setInput("");
-    setIsThinking(true);    try {
+    setIsThinking(true);    
+    try {
       const formData = new FormData();
       formData.append("user_query", content);
 
@@ -83,7 +84,7 @@ useEffect(() => {
       if (data.error) {
         setMessages([
           ...newMessages,
-          { sender: "bot", text: data.error },
+          { sender: "bot", text: data.error, sql: data.sql_query || "" },
         ]);
       } else {
         const generateTableHTML = (data) => {
@@ -113,7 +114,8 @@ useEffect(() => {
           ...newMessages,
           {
             sender: "bot",
-            text: tableHTML
+            text: tableHTML,
+            sql: data.sql_query || ""
           },
         ]);
         
@@ -122,10 +124,41 @@ useEffect(() => {
       toast.error("Something went wrong. Please try again.");
       setMessages([
         ...newMessages,
-        { sender: "bot", text: "Something went wrong." },
+        { sender: "bot", text: "Something went wrong.", sql: "" },
       ]);
     } finally {
       setIsThinking(false);
+    }
+  };
+
+  const sendFeedback = async (userQuery, sqlQuery, feedbackType) => {
+    try {
+      setFeedbackInProgress(true);
+
+      // Create form data for the request
+      const formData = new FormData();
+      formData.append("user_query", userQuery);
+      formData.append("sql_query", sqlQuery);
+      formData.append("feedback_type", feedbackType);
+
+      // Send feedback to backend
+      const res = await fetch("http://localhost:8000/feedback/", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.status === "success") {
+        toast.success(feedbackType === "positive" ? "Thanks for the positive feedback!" : "Thanks for your feedback. We'll improve!");
+      } else {
+        toast.error("Failed to send feedback. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error sending feedback:", error);
+      toast.error("Error sending feedback. Please try again.");
+    } finally {
+      setFeedbackInProgress(false);
     }
   };
 
@@ -133,45 +166,45 @@ useEffect(() => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
     const tables = doc.querySelectorAll("table");
-  
+
     if (tables.length === 0) {
       return <div dangerouslySetInnerHTML={{ __html: html }} />;
     }
-  
+
     const parts = [];
     let lastIndex = 0;
-  
+
     tables.forEach((table, i) => {
       const fullHtml = table.outerHTML;
       const startIndex = html.indexOf(fullHtml, lastIndex);
       const rows = table.querySelectorAll("tr");
       const rowCount = rows.length;
-  
+
       if (startIndex > lastIndex) {
         const textBefore = html.slice(lastIndex, startIndex);
         parts.push(
           <div key={`text-before-${i}`} dangerouslySetInnerHTML={{ __html: textBefore }} />
         );
       }
-  
+
       const header = rows[0].outerHTML;
       const firstFourRows = Array.from(rows).slice(1, 5).map((row) => row.outerHTML).join("");
       const truncatedTable = `<table>${header}${firstFourRows}</table>`;
-  
+
       const shouldTruncate = rowCount > 5;
-  
+
       const containerStyles = {
         overflowX: "auto",
         maxWidth: "100%",
         margin: "1rem 0",
         textAlign: "left",
       };
-  
+
       const tableStyles = {
         minWidth: "600px",
         display: "inline-block",
       };
-  
+
       if (shouldTruncate) {
         // Show first 4 rows with View Full Table button
         parts.push(
@@ -206,20 +239,18 @@ useEffect(() => {
           </div>
         );
       }
-  
+
       lastIndex = startIndex + fullHtml.length;
     });
-  
+
     if (lastIndex < html.length) {
       const remainingText = html.slice(lastIndex);
       parts.push(<div key="text-after" dangerouslySetInnerHTML={{ __html: remainingText }} />);
     }
-  
+
     return <>{parts}</>;
   }
-  
-  
-  
+
 
   if (!hasHydrated) return null;
 
@@ -253,17 +284,39 @@ useEffect(() => {
                   ? renderBotMessageWithTables(msg.text)
                   : msg.text}
               </div>
-              {msg.sender === "bot" && msg.sql && (
-                <button
-                  className="view-sql-btn"
-                  onClick={() => {
-                    setCurrentSQL(msg.sql);
-                    setShowSQL(true);
-                  }}
-                >
-                  🧠
-                </button>
-              )}
+              <div className="message-actions">
+                {msg.sender === "bot" && msg.sql && (
+                  <button
+                    className="view-sql-btn"
+                    onClick={() => {
+                      setCurrentSQL(msg.sql);
+                      setShowSQL(true);
+                    }}
+                  >
+                    🧠
+                  </button>
+                )}
+                
+                {/* Feedback buttons for bot responses */}
+                {msg.sender === "bot" && i > 0 && (
+                  <div className="feedback-buttons">
+                    <button
+                      className="feedback-btn positive"
+                      onClick={() => sendFeedback(messages[i-1].text, msg.sql || "", "positive")}
+                      disabled={feedbackInProgress}
+                    >
+                      👍
+                    </button>
+                    <button
+                      className="feedback-btn negative"
+                      onClick={() => sendFeedback(messages[i-1].text, msg.sql || "", "negative")}
+                      disabled={feedbackInProgress}
+                    >
+                      👎
+                    </button>
+                  </div>
+                )}
+              </div>
             </motion.div>
           ))}
 
@@ -293,43 +346,43 @@ useEffect(() => {
           </div>
         )}
 
-{messages.length === 0 && (
-  <div className="suggested-container">
-    {[
-    ["Who scored the most runs in IPL ?",
-    "Show me the top 5 wicket-takers in IPL ?"],[
-    "Which team won the most matches in IPL ?"],
-    ].map((row, rowIndex) => (
-      <div key={rowIndex} className="suggested-row">
-        {row.map((q, idx) => (
-          <button
-            key={idx}
-            className="suggested-bubble"
-            onClick={() => sendMessage(q)}
-          >
-            {q}
-          </button>
-        ))}
-      </div>
-    ))}
-  </div>
-)}
+        {messages.length === 0 && (
+          <div className="suggested-container">
+            {[
+              ["Who scored the most runs in IPL ?",
+                "Show me the top 5 wicket-takers in IPL ?"], [
+                "Which team won the most matches in IPL ?"],
+            ].map((row, rowIndex) => (
+              <div key={rowIndex} className="suggested-row">
+                {row.map((q, idx) => (
+                  <button
+                    key={idx}
+                    className="suggested-bubble"
+                    onClick={() => sendMessage(q)}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
 
-        
+
 
         <div className="chat-input-area">
-        {/* Input box appears when no messages */}
-        {messages.length === 0 && (
-          <div className="input-box center">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              placeholder="Ask Cricket..."
-            />
-            <button onClick={() => sendMessage()}>Send</button>
-          </div>
-        )}        </div>
+          {/* Input box appears when no messages */}
+          {messages.length === 0 && (
+            <div className="input-box center">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                placeholder="Ask Cricket..."
+              />
+              <button onClick={() => sendMessage()}>Send</button>
+            </div>
+          )}        </div>
 
 
 
@@ -424,6 +477,49 @@ background: linear-gradient(135deg, #26e2a3, #00b88f);
   transform: scale(1.05);
 }
 
+.feedback-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.feedback-btn {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.feedback-btn:hover {
+  transform: scale(1.1);
+}
+
+.feedback-btn.positive:hover {
+  background: #dcfce7;
+}
+
+.feedback-btn.negative:hover {
+  background: #fee2e2;
+}
+
+.feedback-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.message-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
 
 @media (max-width: 640px) {
   .input-box {
@@ -451,7 +547,6 @@ background: linear-gradient(135deg, #26e2a3, #00b88f);
     white-space: nowrap;
   }
 }
-
 
         .modal-content {
           background: white;
@@ -839,6 +934,34 @@ background: linear-gradient(135deg, #26e2a3, #00b88f);
 
         table td a:hover {
           text-decoration: underline;
+        }
+
+        .feedback-buttons {
+          display: flex;
+          gap: 0.5rem;
+          margin-top: 0.5rem;
+        }
+
+        .feedback-btn {
+          background: #f3f4f6;
+          border: none;
+          padding: 0.5rem;
+          border-radius: 50%;
+          cursor: pointer;
+          transition: background-color 0.2s ease;
+        }
+
+        .feedback-btn.positive:hover {
+          background: #d1fae5;
+        }
+
+        .feedback-btn.negative:hover {
+          background: #fee2e2;
+        }
+
+        .feedback-btn:disabled {
+          cursor: not-allowed;
+          opacity: 0.5;
         }
       `}</style>
     </div>
