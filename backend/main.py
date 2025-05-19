@@ -28,7 +28,7 @@ from dotenv import load_dotenv
 
 # Import our modularized components
 from utils.logger import logger
-from models.db_models import DatabaseManager, LogManager, LogLevel
+from models.db_models import DatabaseManager, LogManager, LogLevel, FeedbackManager
 from services.ip_tracker import IPTracker
 from services.sql_generator import SQLGenerator
 from services.sql_validator import SQLValidator
@@ -297,6 +297,37 @@ async def root():
     logger.info("Home route accessed")
     return {"message": "Welcome to the Natural Language to SQL API"}
 
+# Add a feedback endpoint
+@app.post("/feedback/")
+async def record_feedback(
+    request: Request,
+    user_query: str = Form(...),
+    sql_query: str = Form(...),
+    feedback_type: str = Form(...),  # 'positive' or 'negative'
+):
+    try:
+        # Get the client's IP address
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            client_ip = forwarded_for.split(",")[0].strip()
+        else:
+            client_ip = request.client.host
+            
+        logger.info(f"Feedback received from IP: {client_ip}, Type: {feedback_type}")
+        
+        # Record the feedback in the database
+        success = FeedbackManager.record_feedback(
+            client_ip, user_query, sql_query, feedback_type
+        )
+        
+        if success:
+            return {"status": "success", "message": "Feedback recorded successfully"}
+        else:
+            return {"status": "error", "message": "Failed to record feedback"}
+            
+    except Exception as e:
+        logger.error(f"Error processing feedback: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
 # Run the server using uvicorn
 if __name__ == "__main__":

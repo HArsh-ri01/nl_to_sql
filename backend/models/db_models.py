@@ -59,6 +59,20 @@ class DatabaseManager:
             """
             )
 
+            # Feedback table
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ip_address TEXT,
+                    user_query TEXT,
+                    sql_query TEXT,
+                    feedback_type TEXT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            )
+
             # Error logs table
             conn.execute(
                 """
@@ -180,3 +194,35 @@ class LogManager:
 
         conn.close()
         return logs
+
+
+class FeedbackManager:
+    @staticmethod
+    def record_feedback(ip_address, user_query, sql_query, feedback_type):
+        """Store user feedback in the database
+        
+        Args:
+            ip_address (str): The user's IP address
+            user_query (str): The original natural language query
+            sql_query (str): The generated SQL query
+            feedback_type (str): 'positive' or 'negative'
+        """
+        try:
+            conn = sqlite3.connect(IP_TRACKING_DB_PATH)
+            cursor = conn.cursor()
+            
+            cursor.execute(
+                """
+                INSERT INTO user_feedback 
+                (ip_address, user_query, sql_query, feedback_type)
+                VALUES (?, ?, ?, ?)
+                """,
+                (ip_address, user_query, sql_query, feedback_type)
+            )
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"Error recording feedback: {str(e)}")
+            return False
