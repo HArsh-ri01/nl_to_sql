@@ -269,55 +269,55 @@ export default function ChatView() {
 
           {/* Display messages */}
           {messages.map((msg, i) => (
-            <motion.div
-              key={i}
-              className={`message ${msg.sender}`}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="avatar">
-                {msg.sender === "user" ? "🧑" : "🤖"}
-              </div>
-              <div className="bubble">
-                {msg.sender === "bot"
-                  ? renderBotMessageWithTables(msg.text)
-                  : msg.text}
-              </div>
-              <div className="message-actions">
-                {msg.sender === "bot" && msg.sql && (
+            <div key={i}>
+              <motion.div
+                className={`message ${msg.sender}`}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="avatar">
+                  {msg.sender === "user" ? "🧑" : "🤖"}
+                </div>
+                <div className="bubble">
+                  {msg.sender === "bot"
+                    ? renderBotMessageWithTables(msg.text)
+                    : msg.text}
+                </div>
+                <div className="message-actions">
+                  {msg.sender === "bot" && msg.sql && (
+                    <button
+                      className="view-sql-btn"
+                      onClick={() => {
+                        setCurrentSQL(msg.sql);
+                        setShowSQL(true);
+                      }}
+                    >
+                      🧠
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+              {/* Feedback buttons for bot responses, now below the chat card */}
+              {msg.sender === "bot" && i > 0 && (
+                <div className="feedback-buttons" style={{ marginLeft: 56, marginTop: 4 }}>
                   <button
-                    className="view-sql-btn"
-                    onClick={() => {
-                      setCurrentSQL(msg.sql);
-                      setShowSQL(true);
-                    }}
+                    className="feedback-btn positive"
+                    onClick={() => sendFeedback(messages[i-1].text, msg.sql || "", "positive")}
+                    disabled={feedbackInProgress}
                   >
-                    🧠
+                    👍
                   </button>
-                )}
-                
-                {/* Feedback buttons for bot responses */}
-                {msg.sender === "bot" && i > 0 && (
-                  <div className="feedback-buttons">
-                    <button
-                      className="feedback-btn positive"
-                      onClick={() => sendFeedback(messages[i-1].text, msg.sql || "", "positive")}
-                      disabled={feedbackInProgress}
-                    >
-                      👍
-                    </button>
-                    <button
-                      className="feedback-btn negative"
-                      onClick={() => sendFeedback(messages[i-1].text, msg.sql || "", "negative")}
-                      disabled={feedbackInProgress}
-                    >
-                      👎
-                    </button>
-                  </div>
-                )}
-              </div>
-            </motion.div>
+                  <button
+                    className="feedback-btn negative"
+                    onClick={() => sendFeedback(messages[i-1].text, msg.sql || "", "negative")}
+                    disabled={feedbackInProgress}
+                  >
+                    👎
+                  </button>
+                </div>
+              )}
+            </div>
           ))}
 
           {/* Display loading animation when bot is thinking */}
