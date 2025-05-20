@@ -84,7 +84,7 @@ export default function Home() {
           {/* IPL Wisdom Card */}
           <div className="ipl-wisdom-card">
             <div>
-              <div>🧠 My IPL wisdom ends at the match on <b>May 11th, 2025</b>.</div>
+              <div>🧠 My IPL wisdom ends at the match <b>57 of IPL 2025.</b></div>
               <div>Everything after that is future me's problem. 😬</div>
             </div>
           </div>
