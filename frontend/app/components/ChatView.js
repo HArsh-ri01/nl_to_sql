@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, createContext, useContext } from "react";
 import { motion } from "framer-motion";
 import toast, { Toaster } from "react-hot-toast";
 import dynamic from "next/dynamic";
+
+export const ChatViewContext = createContext();
 
 export default function ChatView() {
   const [hasHydrated, setHasHydrated] = useState(false);
@@ -131,38 +133,70 @@ export default function ChatView() {
     }
   };
 
-  const sendFeedback = async (userQuery, sqlQuery, feedbackType) => {
-    try {
-      setFeedbackInProgress(true);
-
-      // Create form data for the request
-      const formData = new FormData();
-      formData.append("user_query", userQuery);
-      formData.append("sql_query", sqlQuery);
-      formData.append("feedback_type", feedbackType);
-
-      // Send feedback to backend
-      const res = await fetch("/api/feedback/", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (data.status === "success") {
-        toast.success(feedbackType === "positive" ? "Thanks for the positive feedback!" : "Thanks for your feedback. We'll improve!");
-      } else {
-        toast.error("Failed to send feedback. Please try again.");
+  function FeedbackButtonsBelowTable({ messageIndex, tableIndex }) {
+    const [feedback, setFeedback] = useState(null);
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+    const buttonSize = isMobile ? 32 : 44;
+    const fontSize = isMobile ? '1.1rem' : '1.5rem';
+    const { messages } = useContext(ChatViewContext) || {};
+    const msg = messages ? messages[messageIndex] : null;
+    const sql = msg && msg.sql ? msg.sql : null;
+    let question = null;
+    if (messages && messageIndex > 0) {
+      for (let i = messageIndex - 1; i >= 0; i--) {
+        if (messages[i].sender === 'user') {
+          question = messages[i].text;
+          break;
+        }
       }
-    } catch (error) {
-      console.error("Error sending feedback:", error);
-      toast.error("Error sending feedback. Please try again.");
-    } finally {
-      setFeedbackInProgress(false);
     }
-  };
+    const sendFeedback = async (value) => {
+      setFeedback(value);
+      try {
+        await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            feedback: value,
+            sql,
+            question,
+          }),
+        });
+      } catch (e) {
+        // Optionally handle error
+      }
+    };
+    if (feedback) {
+      return <div style={{ marginTop: isMobile ? 10 : 16, color: '#22c55e', fontWeight: 500, textAlign: 'left', fontSize: isMobile ? '0.95rem' : '1rem' }}>Thank you for your feedback!</div>;
+    }
+    return (
+      <div style={{ marginTop: isMobile ? 10 : 16, display: 'flex', gap: isMobile ? 10 : 18, alignItems: 'center', justifyContent: 'flex-start' }}>
+        <span style={{ fontSize: isMobile ? '0.95rem' : '1rem', color: '#2563eb', fontWeight: 500, fontStyle: 'italic' }}>Did I get it right?</span>
+        <button
+          style={{
+            background: '#e0f2fe', color: '#22c55e', border: 'none', borderRadius: '50%', width: buttonSize, height: buttonSize, cursor: 'pointer', fontSize, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(34,197,94,0.08)', transition: 'background 0.2s, transform 0.2s', outline: 'none'
+          }}
+          aria-label="Thumbs up"
+          onClick={() => sendFeedback('yes')}
+          className="feedback-thumb-btn"
+        >
+          👍
+        </button>
+        <button
+          style={{
+            background: '#fef2f2', color: '#ef4444', border: 'none', borderRadius: '50%', width: buttonSize, height: buttonSize, cursor: 'pointer', fontSize, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(239,68,68,0.08)', transition: 'background 0.2s, transform 0.2s', outline: 'none'
+          }}
+          aria-label="Thumbs down"
+          onClick={() => sendFeedback('no')}
+          className="feedback-thumb-btn"
+        >
+          👎
+        </button>
+      </div>
+    );
+  }
 
-  function renderBotMessageWithTables(html) {
+  function renderBotMessageWithTables(html, messageIndex) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
     const tables = doc.querySelectorAll("table");
@@ -208,34 +242,38 @@ export default function ChatView() {
       if (shouldTruncate) {
         // Show first 4 rows with View Full Table button
         parts.push(
-          <div key={`truncated-${i}`} style={containerStyles}>
-            <div
-              style={tableStyles}
-              dangerouslySetInnerHTML={{ __html: truncatedTable }}
-            />
-          </div>
-        );
-        parts.push(
-          <div key={`btn-${i}`} style={{ margin: "0.5rem 0", textAlign: isMobile ? "center" : "left" }}>
-            <button
-              className="view-table-btn"
-              onClick={() => {
-                setFullTableHtml(fullHtml);
-                setShowTableModal(true);
-              }}
-            >
-              View Full Table
-            </button>
+          <div key={`truncated-${i}`} style={{ marginBottom: 0 }}>
+            <div style={containerStyles}>
+              <div
+                style={tableStyles}
+                dangerouslySetInnerHTML={{ __html: truncatedTable }}
+              />
+            </div>
+            <div style={{ margin: "0.5rem 0", textAlign: isMobile ? "center" : "left" }}>
+              <button
+                className="view-table-btn"
+                onClick={() => {
+                  setFullTableHtml(fullHtml);
+                  setShowTableModal(true);
+                }}
+              >
+                View Full Table
+              </button>
+            </div>
+            <FeedbackButtonsBelowTable messageIndex={messageIndex} tableIndex={i} />
           </div>
         );
       } else {
         // Show full table
         parts.push(
-          <div key={`full-table-${i}`} style={containerStyles}>
-            <div
-              style={tableStyles}
-              dangerouslySetInnerHTML={{ __html: fullHtml }}
-            />
+          <div key={`full-table-${i}`} style={{ marginBottom: 0 }}>
+            <div style={containerStyles}>
+              <div
+                style={tableStyles}
+                dangerouslySetInnerHTML={{ __html: fullHtml }}
+              />
+            </div>
+            <FeedbackButtonsBelowTable messageIndex={messageIndex} tableIndex={i} />
           </div>
         );
       }
@@ -255,22 +293,23 @@ export default function ChatView() {
   if (!hasHydrated) return null;
 
   return (
-    <div className="">
-      <Toaster />
+    <ChatViewContext.Provider value={{ messages }}>
+      <div className="">
+        <Toaster />
 
-      <main className="chat-area">
-        <div className="messages">
-          {/* Display Lottie animation if there are no messages */}
-          {messages.length === 0 && (
-            <div className="empty-state-container">
-              <LottiePlaceholder />
-            </div>
-          )}
+        <main className="chat-area">
+          <div className="messages">
+            {/* Display Lottie animation if there are no messages */}
+            {messages.length === 0 && (
+              <div className="empty-state-container">
+                <LottiePlaceholder />
+              </div>
+            )}
 
-          {/* Display messages */}
-          {messages.map((msg, i) => (
-            <div key={i}>
+            {/* Display messages */}
+            {messages.map((msg, i) => (
               <motion.div
+                key={i}
                 className={`message ${msg.sender}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -281,70 +320,48 @@ export default function ChatView() {
                 </div>
                 <div className="bubble">
                   {msg.sender === "bot"
-                    ? renderBotMessageWithTables(msg.text)
+                    ? renderBotMessageWithTables(msg.text, i)
                     : msg.text}
                 </div>
-                <div className="message-actions">
-                  {msg.sender === "bot" && msg.sql && (
-                    <button
-                      className="view-sql-btn"
-                      onClick={() => {
-                        setCurrentSQL(msg.sql);
-                        setShowSQL(true);
-                      }}
-                    >
-                      🧠
-                    </button>
-                  )}
-                </div>
+                {msg.sender === "bot" && msg.sql && (
+                  <button
+                    className="view-sql-btn"
+                    onClick={() => {
+                      setCurrentSQL(msg.sql);
+                      setShowSQL(true);
+                    }}
+                  >
+                    🧠
+                  </button>
+                )}
               </motion.div>
-              {/* Feedback buttons for bot responses, now below the chat card */}
-              {msg.sender === "bot" && i > 0 && (
-                <div className="feedback-buttons" style={{ marginLeft: 56, marginTop: 4 }}>
-                  <button
-                    className="feedback-btn positive"
-                    onClick={() => sendFeedback(messages[i-1].text, msg.sql || "", "positive")}
-                    disabled={feedbackInProgress}
-                  >
-                    👍
-                  </button>
-                  <button
-                    className="feedback-btn negative"
-                    onClick={() => sendFeedback(messages[i-1].text, msg.sql || "", "negative")}
-                    disabled={feedbackInProgress}
-                  >
-                    👎
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+            ))}
 
-          {/* Display loading animation when bot is thinking */}
-          {isThinking && (
-            <div className="message bot">
-              <div className="avatar">🤖</div>
-              <div className="bubble loader-container">
-                <div className="loader" />
+            {/* Display loading animation when bot is thinking */}
+            {isThinking && (
+              <div className="message bot">
+                <div className="avatar">🤖</div>
+                <div className="bubble loader-container">
+                  <div className="loader" />
+                </div>
               </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input box appears when there are messages */}
+          {messages.length > 0 && (
+            <div className="input-box">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                placeholder="Ask Cricket..."
+              />
+              <button onClick={() => sendMessage()}>Send</button>
             </div>
           )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input box appears when there are messages */}
-        {messages.length > 0 && (
-          <div className="input-box">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              placeholder="Ask Cricket..."
-            />
-            <button onClick={() => sendMessage()}>Send</button>
-          </div>
-        )}
 
         {messages.length === 0 && (
           <div className="suggested-container">
@@ -368,9 +385,9 @@ export default function ChatView() {
           </div>
         )}
 
+          
 
-
-        <div className="chat-input-area">
+          <div className="chat-input-area">
           {/* Input box appears when no messages */}
           {messages.length === 0 && (
             <div className="input-box center">
@@ -386,91 +403,91 @@ export default function ChatView() {
 
 
 
-      </main>
+        </main>
 
-      {/* Modal and CSS below */}
-      {showSQL && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowSQL(false)} // Close the modal when clicking outside
-        >
+        {/* Modal and CSS below */}
+        {showSQL && (
           <div
-            className="modal-content"
-            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+            className="modal-overlay"
+            onClick={() => setShowSQL(false)} // Close the modal when clicking outside
           >
-            <button
-              className="modal-close-btn"
-              onClick={() => setShowSQL(false)} // Close the modal on button click
+            <div
+              className="modal-content"
+              onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
             >
-              ×
-            </button>
-            <h2 className="modal-title">Generated SQL</h2>
-            <pre className="modal-sql">{currentSQL}</pre>
-            <div className="modal-footer">
               <button
-                onClick={() => setShowSQL(false)}
                 className="modal-close-btn"
+                onClick={() => setShowSQL(false)} // Close the modal on button click
               >
-                Close
+                ×
               </button>
+              <h2 className="modal-title">Generated SQL</h2>
+              <pre className="modal-sql">{currentSQL}</pre>
+              <div className="modal-footer">
+                <button
+                  onClick={() => setShowSQL(false)}
+                  className="modal-close-btn"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {showTableModal && (
-        <div className="modal-overlay" onClick={() => setShowTableModal(false)}>
-          <div
-            className="modal-content"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="modal-close-btn"
-              onClick={() => setShowTableModal(false)}
+        {showTableModal && (
+          <div className="modal-overlay" onClick={() => setShowTableModal(false)}>
+            <div
+              className="modal-content"
+              onClick={(e) => e.stopPropagation()}
             >
-              ×
-            </button>
-            <h2 className="modal-title">Full Table</h2>
-
-            {/* 🔧 Scrollable wrapper for the table */}
-            <div className="modal-table-wrapper">
-              <div dangerouslySetInnerHTML={{ __html: fullTableHtml }} />
-            </div>
-
-            <div className="modal-footer">
               <button
+                className="modal-close-btn"
                 onClick={() => setShowTableModal(false)}
-                className="modal-close-btn"
               >
-                Close
+                ×
               </button>
+              <h2 className="modal-title">Full Table</h2>
+
+              {/* 🔧 Scrollable wrapper for the table */}
+              <div className="modal-table-wrapper">
+                <div dangerouslySetInnerHTML={{ __html: fullTableHtml }} />
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  onClick={() => setShowTableModal(false)}
+                  className="modal-close-btn"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Styles */}
-      <style jsx global>{`
-        html,
-        body,
-        #__next {
-          margin: 0;
-          height: 100%;
-          width: 100%;
-          font-family: "Inter", sans-serif;
-          background: linear-gradient(to right, #f0f4f8, #ffffff);
-          color: #111827;
-        }
+        {/* Styles */}
+        <style jsx global>{`
+          html,
+          body,
+          #__next {
+            margin: 0;
+            height: 100%;
+            width: 100%;
+            font-family: "Inter", sans-serif;
+            background: linear-gradient(to right, #f0f4f8, #ffffff);
+            color: #111827;
+          }
 
-        .view-table-btn {
+          .view-table-btn {
 background: linear-gradient(135deg, #26e2a3, #00b88f);
-  border: none;
-  color: white;
-  font-weight: 500;
-  padding: 0.6rem 1rem;
-  border-radius: 9999px;
-  cursor: pointer;
-  transition: transform 0.2s ease;
+    border: none;
+    color: white;
+    font-weight: 500;
+    padding: 0.6rem 1rem;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
 }
 
 .view-table-btn:hover {
@@ -548,45 +565,45 @@ background: linear-gradient(135deg, #26e2a3, #00b88f);
   }
 }
 
-        .modal-content {
-          background: white;
-          padding: 20px;
-          border-radius: 12px;
-          width: 90%;
-          max-width: 700px; /* 📏 Medium width */
-          max-height: 80vh; /* ⛔ Prevents vertical overflow */
-          overflow-y: auto; /* ✅ Enables vertical scrolling */
-          position: relative;
-          display: flex;
-          flex-direction: column;
-        }
+          .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 700px; /* 📏 Medium width */
+            max-height: 80vh; /* ⛔ Prevents vertical overflow */
+            overflow-y: auto; /* ✅ Enables vertical scrolling */
+            position: relative;
+            display: flex;
+            flex-direction: column;
+          }
 
-        .modal-table-wrapper {
-          overflow: auto; /* ✅ Scrolls if table is big */
-          max-height: 60vh;
-          border-radius: 8px;
-          background: #f9fafb;
-          padding: 1rem;
-          margin-top: 1rem;
-        }
+          .modal-table-wrapper {
+            overflow: auto; /* ✅ Scrolls if table is big */
+            max-height: 60vh;
+            border-radius: 8px;
+            background: #f9fafb;
+            padding: 1rem;
+            margin-top: 1rem;
+          }
 
-        /* Optional nice scrollbars */
-        .modal-table-wrapper::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
-        }
+          /* Optional nice scrollbars */
+          .modal-table-wrapper::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+          }
 
-        .modal-table-wrapper::-webkit-scrollbar-thumb {
-          background-color: rgba(100, 100, 100, 0.2);
-          border-radius: 4px;
-        }
+          .modal-table-wrapper::-webkit-scrollbar-thumb {
+            background-color: rgba(100, 100, 100, 0.2);
+            border-radius: 4px;
+          }
 
-       .suggested-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+         .suggested-container {
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 8px;
+margin-bottom: 12px;
 }
 
 .suggested-row {
@@ -623,347 +640,324 @@ background: linear-gradient(135deg, #26e2a3, #00b88f);
 }
 
 
-        .empty-state-container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          height: 80%;
-          gap: 2rem;
-        }
-
-        .lottie-wrapper {
-          width: 300px;
-          height: 300px;
-        }
-
-        .layout {
-          display: flex;
-          height: 100vh;
-          width: 100vw;
-          overflow: hidden;
-        }
-
-        .chat-area {
-          height: 80vh; /* 🔧 Ensure the area uses full viewport height */
-          overflow: hidden; /* Already there — good */
-          display: flex;
-          flex-direction: column;
-          padding: 1rem;
-        }
-
-        .messages {
-          flex: 1;
-          overflow-y: auto;
-          padding-bottom: 2rem;
-          scroll-behavior: smooth;
-        }
-
-        .message {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.75rem;
-          margin-bottom: 1.5rem;
-        }
-
-        .message.user {
-          justify-content: flex-end;
-          flex-direction: row-reverse;
-        }
-
-        .message .avatar {
-          width: 36px;
-          height: 36px;
-          background: #e0f2fe;
-          border-radius: 50%;
-          display: grid;
-          place-items: center;
-          font-size: 1.25rem;
-          font-weight: bold;
-          color: #0284c7;
-          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-        }
-
-        .bubble {
-          max-width: 70%;
-          background: #ffffff;
-          border-radius: 20px;
-          padding: 0.75rem 1rem;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-          font-size: 0.95rem;
-          line-height: 1.4;
-          word-break: break-word;
-        }
-
-        .message.user .bubble {
-          background: linear-gradient(to right, #3b82f6, #06b6d4);
-          color: #ffffff;
-          margin-left: auto;
-        }
-
-        /* Default input box style */
-        .input-box {
-          display: flex;
-          align-items: center; /* Vertically align items */
-          justify-content: space-between; /* Position input and button */
-          width: 90%; /* Set width as a percentage of the viewport */
-          max-width: 500px; /* Max width for the input box */
-          padding: 0.5rem 1rem; /* Padding adjusted to balance appearance */
-          background: #fff;
-          border: 1px solid #e5e7eb;
-          border-radius: 9999px;
-          gap: 0.75rem;
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
-          box-sizing: border-box; /* Ensure padding is inside the box */
-          margin: 0 auto; /* Center the input box horizontally */
-        }
-
-        /* Centered input box style */
-        .input-box.center {
-          display: flex;
-          flex-direction: row;
-          justify-content: center; /* Centers the entire input box */
-          align-items: center;
-          position: relative;
-          width: 90%; /* Responsive width */
-          max-width: 500px; /* Max width for the input box */
-          padding: 0.5rem 1rem; /* Reduced padding for better balance */
-          gap: 0.75rem;
-          background: #fff;
-          border: 1px solid #e5e7eb;
-          border-radius: 9999px;
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
-          box-sizing: border-box; /* Ensures padding is inside the box */
-          margin: 0 auto; /* Ensures the box is horizontally centered */
-        }
-
-        /* Input field style */
-        .input-box input {
-          flex-grow: 1;
-          border: none;
-          outline: none;
-          font-size: 1rem;
-          background: transparent;
-        }
-
-        /* Button style */
-        .input-box button {
-          background: linear-gradient(to right, #3b82f6, #06b6d4);
-          color: white;
-          font-weight: 500;
-          border: none;
-          padding: 0.6rem 1.2rem;
-          border-radius: 9999px;
-          cursor: pointer;
-          transition: transform 0.2s ease;
-        }
-
-        .input-box button:hover {
-          transform: scale(1.05);
-        }
-
-        .empty-state h1 {
-          font-size: 1.2rem;
-          font-weight: 500;
-          color: #6b7280;
-        }
-
-        .loader-container {
-          background: #f3f4f6;
-          padding: 0.8rem 1rem;
-          border-radius: 9999px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .loader {
-          width: 120px;
-          height: 20px;
-          -webkit-mask: linear-gradient(90deg, #000 70%, #0000 0) 0/20%;
-          background: linear-gradient(#000 0 0) 0/0% no-repeat #ddd;
-          animation: l4 2s infinite steps(6);
-        }
-
-        @keyframes l4 {
-          100% {
-            background-size: 120%;
+          .empty-state-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 80%;
+            gap: 2rem;
           }
-        }
 
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          z-index: 1000;
-          background-color: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
+          .lottie-wrapper {
+            width: 300px;
+            height: 300px;
+          }
 
-        .modal-content {
-          background: white;
-          padding: 20px;
-          border-radius: 8px;
-          width: 80%;
-          max-width: 900px;
-          position: relative;
-        }
+          .layout {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+          }
 
-        .modal-close-btn {
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          font-size: 24px;
-          color: #888;
-          background: transparent;
-          border: none;
-          cursor: pointer;
-        }
+          .chat-area {
+            height: 80vh; /* 🔧 Ensure the area uses full viewport height */
+            overflow: hidden; /* Already there — good */
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+          }
 
-        .modal-close-btn:hover {
-          color: #333;
-        }
+          .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 2rem;
+            scroll-behavior: smooth;
+          }
 
-        .modal-title {
-          font-size: 1.5rem;
-          font-weight: bold;
-          color: #333;
-          margin-bottom: 10px;
-        }
+          .message {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+          }
 
-        .modal-sql {
-          background-color: #f5f5f5;
-          padding: 15px;
-          border-radius: 8px;
-          font-family: "Courier New", monospace;
-          font-size: 1rem;
-          white-space: pre-wrap;
-          word-wrap: break-word;
-          max-height: 400px;
-          overflow-y: auto;
-        }
+          .message.user {
+            justify-content: flex-end;
+            flex-direction: row-reverse;
+          }
 
-        .modal-footer {
-          display: flex;
-          justify-content: flex-end;
-          margin-top: 10px;
-        }
+          .message .avatar {
+            width: 36px;
+            height: 36px;
+            background: #e0f2fe;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #0284c7;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+          }
 
-        .modal-footer button {
-          background-color: #007bff;
-          color: white;
-          padding: 10px 20px;
-          border-radius: 5px;
-          cursor: pointer;
-          font-size: 1rem;
-        }
+          .bubble {
+            max-width: 70%;
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 0.75rem 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            font-size: 0.95rem;
+            line-height: 1.4;
+            word-break: break-word;
+          }
 
-        .modal-footer button:hover {
-          background-color: #0056b3;
-        }
+          .message.user .bubble {
+            background: linear-gradient(to right, #3b82f6, #06b6d4);
+            color: #ffffff;
+            margin-left: auto;
+          }
 
-        .view-sql-btn {
-          font-size: 0.875rem;
-          color: black;
-          background-color: #d3e8f5;
-          border: none;
-          padding: 0.5rem 1rem;
-          border-radius: 9999px;
-          cursor: pointer;
-          transition: all 0.3s ease-in-out;
-        }
+          /* Default input box style */
+          .input-box {
+            display: flex;
+            align-items: center; /* Vertically align items */
+            justify-content: space-between; /* Position input and button */
+            width: 90%; /* Set width as a percentage of the viewport */
+            max-width: 500px; /* Max width for the input box */
+            padding: 0.5rem 1rem; /* Padding adjusted to balance appearance */
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 9999px;
+            gap: 0.75rem;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            box-sizing: border-box; /* Ensure padding is inside the box */
+            margin: 0 auto; /* Center the input box horizontally */
+          }
 
-        .view-sql-btn:hover {
-          background-color: #2563eb;
-          transform: scale(1.05);
-        }
+          /* Centered input box style */
+          .input-box.center {
+            display: flex;
+            flex-direction: row;
+            justify-content: center; /* Centers the entire input box */
+            align-items: center;
+            position: relative;
+            width: 90%; /* Responsive width */
+            max-width: 500px; /* Max width for the input box */
+            padding: 0.5rem 1rem; /* Reduced padding for better balance */
+            gap: 0.75rem;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 9999px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            box-sizing: border-box; /* Ensures padding is inside the box */
+            margin: 0 auto; /* Ensures the box is horizontally centered */
+          }
 
-        .view-sql-btn:focus {
-          outline: none;
-          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
-        }
+          /* Input field style */
+          .input-box input {
+            flex-grow: 1;
+            border: none;
+            outline: none;
+            font-size: 1rem;
+            background: transparent;
+          }
 
-        .view-sql-btn:active {
-          transform: scale(0.98);
-        }
+          /* Button style */
+          .input-box button {
+            background: linear-gradient(to right, #3b82f6, #06b6d4);
+            color: white;
+            font-weight: 500;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+          }
 
-        /* Table Styling */
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 20px 0;
-          background-color: #fff;
-          box-shadow: none; /* 🔥 Remove box shadow */
-          border: none; /* 🔥 Remove outer border */
-        }
+          .input-box button:hover {
+            transform: scale(1.05);
+          }
 
-        table th,
-        table td {
-          padding: 10px 15px;
-          text-align: left;
-          border: none; /* 🔥 Remove all row/cell dividers */
-        }
+          .empty-state h1 {
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: #6b7280;
+          }
 
-        table th {
-          background-color: #f9fafb;
-          font-weight: bold;
-          color: #333;
-        }
+          .loader-container {
+            background: #f3f4f6;
+            padding: 0.8rem 1rem;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
 
-        table tr:nth-child(even) {
-          background-color: #f7fafc;
-        }
+          .loader {
+            width: 120px;
+            height: 20px;
+            -webkit-mask: linear-gradient(90deg, #000 70%, #0000 0) 0/20%;
+            background: linear-gradient(#000 0 0) 0/0% no-repeat #ddd;
+            animation: l4 2s infinite steps(6);
+          }
 
-        table tr:hover {
-          background-color: #eef2f7;
-          cursor: pointer;
-        }
+          @keyframes l4 {
+            100% {
+              background-size: 120%;
+            }
+          }
 
-        table td {
-          color: #6b7280;
-        }
+          .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
 
-        table td a {
-          color: #2563eb;
-          text-decoration: none;
-        }
+          .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 900px;
+            position: relative;
+          }
 
-        table td a:hover {
-          text-decoration: underline;
-        }
+          .modal-close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            color: #888;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+          }
 
-        .feedback-buttons {
-          display: flex;
-          gap: 0.5rem;
-          margin-top: 0.5rem;
-        }
+          .modal-close-btn:hover {
+            color: #333;
+          }
 
-        .feedback-btn {
-          background: #f3f4f6;
-          border: none;
-          padding: 0.5rem;
-          border-radius: 50%;
-          cursor: pointer;
-          transition: background-color 0.2s ease;
-        }
+          .modal-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+          }
 
-        .feedback-btn.positive:hover {
-          background: #d1fae5;
-        }
+          .modal-sql {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: "Courier New", monospace;
+            font-size: 1rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 400px;
+            overflow-y: auto;
+          }
 
-        .feedback-btn.negative:hover {
-          background: #fee2e2;
-        }
+          .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+          }
 
-        .feedback-btn:disabled {
-          cursor: not-allowed;
-          opacity: 0.5;
-        }
-      `}</style>
-    </div>
+          .modal-footer button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+          }
+
+          .modal-footer button:hover {
+            background-color: #0056b3;
+          }
+
+          .view-sql-btn {
+            font-size: 0.875rem;
+            color: black;
+            background-color: #d3e8f5;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+          }
+
+          .view-sql-btn:hover {
+            background-color: #2563eb;
+            transform: scale(1.05);
+          }
+
+          .view-sql-btn:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+          }
+
+          .view-sql-btn:active {
+            transform: scale(0.98);
+          }
+
+          /* Table Styling */
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background-color: #fff;
+            box-shadow: none; /* 🔥 Remove box shadow */
+            border: none; /* 🔥 Remove outer border */
+          }
+
+          table th,
+          table td {
+            padding: 10px 15px;
+            text-align: left;
+            border: none; /* 🔥 Remove all row/cell dividers */
+          }
+
+          table th {
+            background-color: #f9fafb;
+            font-weight: bold;
+            color: #333;
+          }
+
+          table tr:nth-child(even) {
+            background-color: #f7fafc;
+          }
+
+          table tr:hover {
+            background-color: #eef2f7;
+            cursor: pointer;
+          }
+
+          table td {
+            color: #6b7280;
+          }
+
+          table td a {
+            color: #2563eb;
+            text-decoration: none;
+          }
+
+          table td a:hover {
+            text-decoration: underline;
+          }
+
+          .feedback-thumb-btn:hover {
+            transform: scale(1.18);
+          }
+        `}</style>
+      </div>
+    </ChatViewContext.Provider>
   );
 }
