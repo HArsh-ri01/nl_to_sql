@@ -62,7 +62,8 @@ export default function Home() {
         {/* Sidebar */}
         <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
           <div className="logo-container">
-            <h2 className="logo">Ask Cricket 🏏</h2>
+            <h2 className="logo">Ask IPL 🏏</h2>
+            <h2 className="logo">Ask IPL 🏏</h2>
           </div>
 
           <nav className="tab-nav">
@@ -80,6 +81,13 @@ export default function Home() {
               </button>
             ))}
           </nav>
+
+          {/* IPL Wisdom Card */}
+          <div className="ipl-wisdom-card">
+            <div>
+              <div>🧠 My IPL wisdom ends at the match <b>57 of IPL 2025.</b> Everything after that is future me's problem. 😬</div> 
+            </div>
+          </div>
         </aside>
       </div>
 
@@ -173,6 +181,8 @@ export default function Home() {
           box-shadow: -2px 0 10px rgba(0, 0, 0, 0.05);
           height: 90vh;
           overflow-y: auto;
+          position: relative;
+          position: relative;
         }
 
         .logo-container {
@@ -304,6 +314,74 @@ export default function Home() {
           }
           to {
             opacity: 1;
+          }
+        }
+
+        .ipl-wisdom-card {
+          margin-top: auto;
+          background: #fffbe6;
+          color: #b45309;
+          border: 1px solid #fde68a;
+          border-radius: 12px;
+          padding: 1rem;
+          font-size: 1rem;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+          text-align: left;
+          margin-bottom: 0.5rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+          .sidebar {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 70%;
+            max-width: 280px;
+            height: 100vh;
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 99;
+          }
+          .ipl-wisdom-card {
+            font-size: 0.95rem;
+            padding: 0.75rem;
+          }
+        }
+
+        .ipl-wisdom-card {
+          margin-top: auto;
+          background: #fffbe6;
+          color: #b45309;
+          border: 1px solid #fde68a;
+          border-radius: 12px;
+          padding: 1rem;
+          font-size: 1rem;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+          text-align: left;
+          margin-bottom: 0.5rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+          .sidebar {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 70%;
+            max-width: 280px;
+            height: 100vh;
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 99;
+          }
+          .ipl-wisdom-card {
+            font-size: 0.95rem;
+            padding: 0.75rem;
           }
         }
       `}</style>

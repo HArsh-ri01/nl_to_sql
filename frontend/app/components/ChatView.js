@@ -284,6 +284,25 @@ export default function ChatView() {
                   ? renderBotMessageWithTables(msg.text)
                   : msg.text}
               </div>
+              {/* Feedback buttons just below the bubble, outside the card */}
+              {msg.sender === "bot" && i > 0 && (
+                <div className="feedback-buttons">
+                  <button
+                    className="feedback-btn positive"
+                    onClick={() => sendFeedback(messages[i-1].text, msg.sql || "", "positive")}
+                    disabled={feedbackInProgress}
+                  >
+                    👍
+                  </button>
+                  <button
+                    className="feedback-btn negative"
+                    onClick={() => sendFeedback(messages[i-1].text, msg.sql || "", "negative")}
+                    disabled={feedbackInProgress}
+                  >
+                    👎
+                  </button>
+                </div>
+              )}
               <div className="message-actions">
                 {msg.sender === "bot" && msg.sql && (
                   <button
@@ -295,26 +314,6 @@ export default function ChatView() {
                   >
                     🧠
                   </button>
-                )}
-                
-                {/* Feedback buttons for bot responses */}
-                {msg.sender === "bot" && i > 0 && (
-                  <div className="feedback-buttons">
-                    <button
-                      className="feedback-btn positive"
-                      onClick={() => sendFeedback(messages[i-1].text, msg.sql || "", "positive")}
-                      disabled={feedbackInProgress}
-                    >
-                      👍
-                    </button>
-                    <button
-                      className="feedback-btn negative"
-                      onClick={() => sendFeedback(messages[i-1].text, msg.sql || "", "negative")}
-                      disabled={feedbackInProgress}
-                    >
-                      👎
-                    </button>
-                  </div>
                 )}
               </div>
             </motion.div>
@@ -480,7 +479,8 @@ background: linear-gradient(135deg, #26e2a3, #00b88f);
 .feedback-buttons {
   display: flex;
   gap: 0.5rem;
-  margin-top: 0.5rem;
+  margin-top: 4px;
+  padding-top: 0;
 }
 
 .feedback-btn {
@@ -671,6 +671,11 @@ background: linear-gradient(135deg, #26e2a3, #00b88f);
           flex-direction: row-reverse;
         }
 
+        .message.bot {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
         .message .avatar {
           width: 36px;
           height: 36px;
@@ -693,6 +698,7 @@ background: linear-gradient(135deg, #26e2a3, #00b88f);
           font-size: 0.95rem;
           line-height: 1.4;
           word-break: break-word;
+          margin-bottom: 0;
         }
 
         .message.user .bubble {
@@ -939,7 +945,8 @@ background: linear-gradient(135deg, #26e2a3, #00b88f);
         .feedback-buttons {
           display: flex;
           gap: 0.5rem;
-          margin-top: 0.5rem;
+          margin-top: 4px;
+          padding-top: 0;
         }
 
         .feedback-btn {
