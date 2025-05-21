@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import toast, { Toaster } from "react-hot-toast";
 import dynamic from "next/dynamic";
 
@@ -131,9 +131,17 @@ export default function ChatView() {
     }
   };
 
-  const sendFeedback = async (userQuery, sqlQuery, feedbackType) => {
+  const [feedbackGiven, setFeedbackGiven] = useState({});
+
+  const sendFeedback = async (messageIndex, userQuery, sqlQuery, feedbackType) => {
     try {
       setFeedbackInProgress(true);
+      
+      // Update the state to track which feedback was given for this message
+      setFeedbackGiven(prev => ({
+        ...prev,
+        [messageIndex]: feedbackType
+      }));
 
       // Create form data for the request
       const formData = new FormData();
@@ -283,27 +291,53 @@ export default function ChatView() {
                 {msg.sender === "bot"
                   ? renderBotMessageWithTables(msg.text)
                   : msg.text}
-              </div>
-              {/* Feedback buttons just below the bubble, outside the card */}
+              </div>              {/* Feedback buttons just below the bubble, outside the card */}
               {msg.sender === "bot" && i > 0 && (
                 <div className="feedback-buttons">
-                  <button
-                    className="feedback-btn positive"
-                    onClick={() => sendFeedback(messages[i-1].text, msg.sql || "", "positive")}
-                    disabled={feedbackInProgress}
-                  >
-                    👍
-                  </button>
-                  <button
-                    className="feedback-btn negative"
-                    onClick={() => sendFeedback(messages[i-1].text, msg.sql || "", "negative")}
-                    disabled={feedbackInProgress}
-                  >
-                    👎
-                  </button>
+                  <div className="feedback-buttons-container">
+                    <AnimatePresence mode="wait">
+                      {(!feedbackGiven[i] || feedbackGiven[i] === "positive") && (
+                        <motion.button
+                          key="positive-btn"
+                          className="feedback-btn positive"
+                          onClick={() => sendFeedback(i, messages[i-1].text, msg.sql || "", "positive")}
+                          disabled={feedbackGiven[i] === "positive"}
+                          initial={{ opacity: 1, scale: 1 }}
+                          animate={{ 
+                            opacity: 1,
+                            scale: feedbackGiven[i] === "positive" ? 1.15 : 1 
+                          }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          transition={{ duration: 0.3, ease: "easeInOut" }}
+                        >
+                          👍
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
+
+                    <AnimatePresence mode="wait">
+                      {(!feedbackGiven[i] || feedbackGiven[i] === "negative") && (
+                        <motion.button
+                          key="negative-btn"
+                          className="feedback-btn negative"
+                          onClick={() => sendFeedback(i, messages[i-1].text, msg.sql || "", "negative")}
+                          disabled={feedbackGiven[i] === "negative"}
+                          initial={{ opacity: 1, scale: 1 }}
+                          animate={{ 
+                            opacity: 1,
+                            scale: feedbackGiven[i] === "negative" ? 1.15 : 1 
+                          }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          transition={{ duration: 0.3, ease: "easeInOut" }}
+                        >
+                          👎
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
               )}
-              <div className="message-actions">
+              {/* <div className="message-actions">
                 {msg.sender === "bot" && msg.sql && (
                   <button
                     className="view-sql-btn"
@@ -315,7 +349,7 @@ export default function ChatView() {
                     🧠
                   </button>
                 )}
-              </div>
+              </div> */}
             </motion.div>
           ))}
 
@@ -474,45 +508,62 @@ background: linear-gradient(135deg, #26e2a3, #00b88f);
 
 .view-table-btn:hover {
   transform: scale(1.05);
-}
+}        .feedback-buttons {
+          margin-top: 4px;
+          padding-top: 0;
+          width: auto;
+          overflow: hidden;
+        }
 
-.feedback-buttons {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 4px;
-  padding-top: 0;
-}
+        .feedback-buttons-container {
+          display: flex;
+          gap: 0.5rem;
+          width: fit-content;
+          position: relative;
+          min-height: 36px;
+        }
 
-.feedback-btn {
-  background: #f3f4f6;
-  border: none;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s ease;
-}
+        .feedback-btn {
+          background: #f3f4f6;
+          border: none;
+          border-radius: 50%;
+          width: 36px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 16px;
+          transition: all 0.3s ease-in-out;
+          position: relative;
+          flex-shrink: 0;
+        }
 
-.feedback-btn:hover {
-  transform: scale(1.1);
-}
+        .feedback-btn:hover {
+          transform: scale(1.1);
+        }
 
-.feedback-btn.positive:hover {
-  background: #dcfce7;
-}
+        .feedback-btn.positive:hover {
+          background: #dcfce7;
+        }
 
-.feedback-btn.negative:hover {
-  background: #fee2e2;
-}
-
-.feedback-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+        .feedback-btn.negative:hover {
+          background: #fee2e2;
+        }
+        
+        .feedback-btn.positive[disabled] {
+          background: #dcfce7;
+          opacity: 0.9;
+          transform: scale(1.15);
+          cursor: default;
+        }
+        
+        .feedback-btn.negative[disabled] {
+          background: #fee2e2;
+          opacity: 0.9;
+          transform: scale(1.15);
+          cursor: default;
+        }
 
 .message-actions {
   display: flex;
@@ -936,39 +987,8 @@ background: linear-gradient(135deg, #26e2a3, #00b88f);
         table td a {
           color: #2563eb;
           text-decoration: none;
-        }
-
-        table td a:hover {
+        }        table td a:hover {
           text-decoration: underline;
-        }
-
-        .feedback-buttons {
-          display: flex;
-          gap: 0.5rem;
-          margin-top: 4px;
-          padding-top: 0;
-        }
-
-        .feedback-btn {
-          background: #f3f4f6;
-          border: none;
-          padding: 0.5rem;
-          border-radius: 50%;
-          cursor: pointer;
-          transition: background-color 0.2s ease;
-        }
-
-        .feedback-btn.positive:hover {
-          background: #d1fae5;
-        }
-
-        .feedback-btn.negative:hover {
-          background: #fee2e2;
-        }
-
-        .feedback-btn:disabled {
-          cursor: not-allowed;
-          opacity: 0.5;
         }
       `}</style>
     </div>
